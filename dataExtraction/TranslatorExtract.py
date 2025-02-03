@@ -185,7 +185,7 @@ def create_result_table(PK,instance = 'prod'):
                     if 'rank' not in a:
                         a['rank'] = 0
                                      
-                results_out.append([i_r,a['resource_id'],a['normalized_score'],a['weighted_mean'],a['sugeno'],a['rank'],a["support_graphs"],r['node_bindings']['sn'][0]['id'],r['node_bindings']['on'][0]['id']]) # IMPROVEMENT ADD SUPPORT GRAPH DATA
+                results_out.append([i_r,a['resource_id'],a['normalized_score'],a['weighted_mean'],a['sugeno'],a['rank'],a["support_graphs"],r['node_bindings']['n00'][0]['id'],r['node_bindings']['n01'][0]['id']]) # IMPROVEMENT ADD SUPPORT GRAPH DATA / ONLY TRUE FOR SINGLE INPUT DATA
  
 def get_KG_table(PK):  
     KG_out = [["id", "subject","subject name","subject_category","object","object name","object_category","predicate"]] 
