@@ -1,6 +1,6 @@
 
 import requests
-import json
+# import json
 import time
 import csv
 import os
@@ -28,31 +28,6 @@ def save_list_txt_file(L,filepath_string):
         writer = csv.writer(fp, delimiter='\t')
         # for item in L:
         writer.writerows(L)
-
-        
-## MolePro utils:
-def load_molepro_prefix():
-    Translator2MolePro = {}
-    MolePro2Translator ={}
-    with open(os.path.join(os. getcwd(),'LLM_embeddings_to_group','data','MolePro - Biolink prefix mapping.csv'), newline='', encoding='utf-8') as csvfile:
-        spamreader = csv.reader(csvfile, delimiter=',')
-        for row in spamreader:
-            if (row[4] is not None) and (row[3] is not None):
-                Translator2MolePro[row[4]] = row[3]
-                MolePro2Translator[row[3]] = row[4]
-    return [Translator2MolePro,MolePro2Translator]
-
-def molepro_map_prefix(cpd_list):
-    [Translator2MolePro,MolePro2Translator] = load_molepro_prefix()
-    cpd_list_mapped = []
-    for c in cpd_list:
-        [prefix,id] = c.split(":")
-        if prefix in Translator2MolePro.keys():
-            cpd_list_mapped.append(Translator2MolePro[prefix]+id)
-        else:
-            cpd_list_mapped.append(c)
-    return cpd_list_mapped
-
 
 ## Translator UTILS
 def get_trapi_message_from_backedup():
@@ -150,21 +125,16 @@ def get_info(q,ii):
     
     return results_out
 
-def get_molepro_message(endpoint,input):
+def get_trapi_message(PK,instance = 'prod'):
+    
+    if instance == 'test':
+        url_response = 'https://ars.test.transltr.io/ars/api/messages/' + PK 
+    elif instance == 'ci':
+        url_response = 'https://ars.ci.transltr.io/ars/api/messages/' + PK 
+    else:
+        url_response = 'https://ars-prod.transltr.io/ars/api/messages/' + PK
+    
     try:
-        
-        url_base = "https://molepro.broadinstitute.org/molecular_data_provider/"
-        molepro_response = requests.post(url_base+endpoint, headers={"Content-Type":"application/json"}, json=input).json()
-        molepro_results_json = requests.get(molepro_response["url"]).json()
-        
-    except:
-        molepro_results_json = None
-        
-    return molepro_results_json
-
-def get_trapi_message(PK):
-    try:
-        url_response = 'https://ars.test.transltr.io/ars/api/messages/' + PK
         # json_url = urlopen(url_response)
         # trapi_results_json = json.loads(json_url.read())
         json_url = requests.get(url_response)
