@@ -187,16 +187,16 @@ def create_result_table(PK,instance = 'prod'):
                                      
                 results_out.append([i_r,a['resource_id'],a['normalized_score'],a['weighted_mean'],a['sugeno'],a['rank'],a["support_graphs"],r['node_bindings']['n00'][0]['id'],r['node_bindings']['n01'][0]['id']]) # IMPROVEMENT ADD SUPPORT GRAPH DATA / ONLY TRUE FOR SINGLE INPUT DATA
  
-def get_KG_table(PK):  
+def get_KG_table(PK, instance = 'prod'):  
     KG_out = [["id", "subject","subject name","subject_category","object","object name","object_category","predicate"]] 
     print("Get TRAPI query message...")
     start = time.process_time()
-    ARS_message = get_trapi_message(PK)
+    ARS_message = get_trapi_message(PK, instance)
     print(["Get TRAPI query message...Done. ",str(time.process_time() - start)])
 
     print("Get results message...")
     start = time.process_time()
-    results_message = get_trapi_message(ARS_message["fields"]["merged_version"])
+    results_message = get_trapi_message(ARS_message["fields"]["merged_version"], instance)
     print(["Get results message...Done. ",str(time.process_time() - start)])
     
     print("Format KG...")  
