@@ -145,12 +145,12 @@ def get_trapi_message(PK,instance = 'prod'):
     return trapi_results_json
 
 
-def create_result_table(PK):
+def create_result_table(PK,instance = 'prod'):
     results_out = []
     # edge_num = 0
     print("Get TRAPI query message...")
     start = time.process_time()
-    ARS_message = get_trapi_message(PK)
+    ARS_message = get_trapi_message(PK,instance = 'prod')
     print(["Get TRAPI query message...Done. ",str(time.process_time() - start)])
 
     
