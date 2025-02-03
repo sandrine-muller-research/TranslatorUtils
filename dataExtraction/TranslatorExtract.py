@@ -58,8 +58,9 @@ def molepro_map_prefix(cpd_list):
 def get_trapi_message_from_backedup():
     try:
         url_response = 'https://ars.ci.transltr.io/ars/api/messages/'
-        json_url = urlopen(url_response)
-        trapi_results_json = json.loads(json_url.read())
+        json_url = requests.get(url_response)#urlopen(url_response)
+        trapi_results_json = json_url.json()
+        # trapi_results_json = json.loads(json_url.read())
     except:
         trapi_results_json = None
         
