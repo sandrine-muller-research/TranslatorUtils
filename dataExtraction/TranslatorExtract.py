@@ -150,7 +150,7 @@ def create_result_table(PK,instance = 'prod'):
     # edge_num = 0
     print("Get TRAPI query message...")
     start = time.process_time()
-    ARS_message = get_trapi_message(PK,instance = 'prod')
+    ARS_message = get_trapi_message(PK,instance)
     print(["Get TRAPI query message...Done. ",str(time.process_time() - start)])
 
     
