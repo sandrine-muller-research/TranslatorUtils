@@ -30,6 +30,12 @@ def save_list_txt_file(L,filepath_string):
         writer.writerows(L)
 
 ## Translator UTILS
+def KG_reorder_input(input_node_id,KG):
+    
+    KG_reorder = [[row[0],row[4],row[5],row[6],row[1],row[2],row[3],row[7]] if row[1]!=input_node_id and row[1]!='subject' else row for row in KG]
+    
+    return KG_reorder
+
 def get_trapi_message_from_backedup():
     try:
         url_response = 'https://ars.ci.transltr.io/ars/api/messages/'
