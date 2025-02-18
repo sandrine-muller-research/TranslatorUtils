@@ -1,6 +1,6 @@
 
 
-def pathfinder_message(ids_n0, ids_n2, predicates):
+def pathfinder_message(ids_n0, ids_n2, categories, predicates):
     message = {
         "message" : {
           "query_graph": {
@@ -9,9 +9,7 @@ def pathfinder_message(ids_n0, ids_n2, predicates):
                       "ids": ids_n0
                       },
                   "un": {
-                      "categories": [
-                          "biolink:NamedThing"
-                          ]
+                      "categories": categories
                       },
                   "n2": {
                       "ids": ids_n2
