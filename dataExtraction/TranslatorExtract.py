@@ -64,6 +64,8 @@ def get_synonym(node_info):
     if 'attributes' in node_info:
         attributes = node_info['attributes']
         synonym = get_info_cond(attributes,'value','attribute_type_id','biolink:synonym')
+        synonym = synonym.split(';')
+        synonym = synonym[0]
     else:
         synonym = ''
         
@@ -147,7 +149,7 @@ def aras_submit(json_message,instance = 'prod'):
     
     if instance == 'dev':
         # set up dev environments:
-        url_aragorn = 'https://aragorn.transltr.io/aragorn/query?answer_coalesce_type=all'
+        url_aragorn = 'https://aragorn.renci.org/aragorn/query?answer_coalesce_type=all'
         url_arax = 'https://arax.ncats.io/beta/api/arax/v1.4/query'
         url_biothings = 'https://api.bte.ncats.io/v1/query'
         url_improving = 'https://ia.healthdatascience.cloud/api/v1.5/query'
