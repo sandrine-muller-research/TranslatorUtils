@@ -24,18 +24,15 @@ def display_click_data(node_data, edge_data):
     if node_data:
         return html.Table([
             html.Tr([html.Th("Node Info")]),
-            html.Tr([html.Td("Label"), html.Td(node_data['label'])]),
-            html.Tr([html.Td("Info 1"), html.Td(node_data['info1'])]),
-            html.Tr([html.Td("Info 2"), html.Td(node_data['info2'])]),
-            html.Tr([html.Td("Info 3"), html.Td(node_data['info3'])])
+            html.Tr([html.Td("id"), html.Td(node_data['id'])]),
+            html.Tr([html.Td("category"), html.Td(node_data['category'])])
         ])
     elif edge_data:
         return html.Table([
             html.Tr([html.Th("Edge Info")]),
-            html.Tr([html.Td("Label"), html.Td(edge_data['label'])]),
-            html.Tr([html.Td("Info 1"), html.Td(edge_data['info1'])]),
-            html.Tr([html.Td("Info 2"), html.Td(edge_data['info2'])]),
-            html.Tr([html.Td("Info 3"), html.Td(edge_data['info3'])])
+            html.Tr([html.Td("id"), html.Td(edge_data['id'])]),
+            html.Tr([html.Td("primary_source"), html.Td(edge_data['primary_source'])]),
+            html.Tr([html.Td("ARA"), html.Td(edge_data['ARA'])])
         ])
     return "Click on a node or edge to see additional information"
 
@@ -55,7 +52,7 @@ def cytoscape_layout_setup(elements):
     # ]
     #  app = cytoscape_layout_setup(elements)
     
-    app = Dash(__name__)
+    app = Dash(__name__, suppress_callback_exceptions=True)
 
     app.layout = html.Div([
         cyto.Cytoscape(
@@ -94,9 +91,10 @@ if __name__ == '__main__':
     ids_n0 = ["NCBIGene:100288687"]
     ids_n2 = ["MONDO:0008030"]
     predicates = ["biolink:interacts_with"]
+    categories = ["biolink:ChemicalEntity","biolink:Gene"]
 
 
-    json_pathfinder_message = TranslatorMessages.pathfinder_message(ids_n0, ids_n2, predicates)
+    json_pathfinder_message = TranslatorMessages.pathfinder_message(ids_n0, ids_n2, categories, predicates)
 
     
     aras_responses = TranslatorExtract.aras_submit(json_pathfinder_message,'dev')
