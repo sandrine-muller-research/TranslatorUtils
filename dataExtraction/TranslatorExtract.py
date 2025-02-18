@@ -131,8 +131,8 @@ def get_KG_from_aras_message(q):
                                             # edge_info = [edges_id,ARA,subject,subject_name,subject_category,object_,object_name,object_category,predicate,primary_source]
                                             
                                             edge_info = {'data':{'id': edges_id,'source': subject, 'target': object_, 'label': predicate, 'primary_source': primary_source, 'ARA':ARA}}
-                                            subject_info = {'data':{'id':subject,'label':subject_name,'categorie':subject_category}}
-                                            object_info = {'data':{'id':object_,'label':object_name,'categorie':object_category}}
+                                            subject_info = {'data':{'id':subject,'label':subject_name,'category':subject_category}}
+                                            object_info = {'data':{'id':object_,'label':object_name,'category':object_category}}
                                             KG_out.append(subject_info)
                                             KG_out.append(object_info)
                                             KG_out.append(edge_info)
