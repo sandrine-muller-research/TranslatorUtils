@@ -43,7 +43,7 @@ def update_output_div(input_value):
     return f'Output: {input_value}'
 
 def open_browser():
-    webbrowser.open_new("http://localhost:8050")
+    webbrowser.open_new("http://127.0.0.1:8050")
 
 
 def cytoscape_layout_setup(elements):
@@ -60,7 +60,22 @@ def cytoscape_layout_setup(elements):
     app.layout = html.Div([
         cyto.Cytoscape(
             id='Translator-cytoscape-fullscreen',
-            layout={'name': 'cose'},
+            layout={'name': 'cose',
+            'idealEdgeLength': 100,
+            'nodeOverlap': 20,
+            'refresh': 20,
+            'fit': True,
+            'padding': 30,
+            'randomize': False,
+            'componentSpacing': 100,
+            'nodeRepulsion': 400000,
+            'edgeElasticity': 100,
+            'nestingFactor': 5,
+            'gravity': 80,
+            'numIter': 1000,
+            'initialTemp': 200,
+            'coolingFactor': 0.95,
+            'minTemp': 1.0},
             style={
                 'width': '100%',
                 'height': 'calc(100vh - 0px)'
@@ -76,9 +91,9 @@ if __name__ == '__main__':
     
     
     # create message:
-    ids_n0 = ["CHEBI:31690"]
-    ids_n2 = ["MONDO:0004784"]
-    predicates = ["biolink:related_to"]
+    ids_n0 = ["NCBIGene:100288687"]
+    ids_n2 = ["MONDO:0008030"]
+    predicates = ["biolink:interacts_with"]
 
 
     json_pathfinder_message = TranslatorMessages.pathfinder_message(ids_n0, ids_n2, predicates)
@@ -88,11 +103,11 @@ if __name__ == '__main__':
     
     KG_flat = TranslatorExtract.get_KG_from_aras_message(aras_responses)
     
-    
+    app = cytoscape_layout_setup(KG_flat)
         
     Timer(1, open_browser).start()  
-    app = cytoscape_layout_setup(KG_flat)
     
-    app.run_server(debug=True, port=8050, use_reloader=False, callback=open_browser)
+    
+    app.run_server(debug=True, use_reloader=False)
     
     print('bob')
