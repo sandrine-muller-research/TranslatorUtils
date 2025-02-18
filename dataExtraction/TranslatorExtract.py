@@ -1,10 +1,10 @@
-
 import requests
 # import json
 import time
 import csv
 import os
 import sys
+import concurrent.futures
 # import numpy as np
 # import argparse
 
@@ -29,7 +29,150 @@ def save_list_txt_file(L,filepath_string):
         # for item in L:
         writer.writerows(L)
 
-## Translator UTILS
+## Translator UTILS - ARAS
+def get_info_cond(info_list,info_to_get,condition_key,condition_value, separator = ';'):
+    # function that from a list info_list, get the value for key info_to_get string if string condition_key is condition_value else return an empty string
+    # if multiple values, the values are joined with separator
+    out = ''
+    for item in info_list:
+        if info_to_get in item and condition_key in item:
+            if item[condition_key] == condition_value:
+                if info_to_get in item:
+                    if isinstance(item[info_to_get], list):
+                        item[info_to_get] = separator.join(item[info_to_get])
+                    out = out + separator + item[info_to_get]
+    if len(out)>0:
+        out = out[1:]
+        
+    return out
+    
+def get_primary_source(source_info):
+    # function that returns the primary source of an edge (tested for ARAX only)
+    primary_source = get_info_cond(source_info,'resource_id','resource_role','primary_knowledge_source')
+    
+    # primary_source = ''
+    # for source in source_info:
+    #     if 'resource_role' in source and 'resource_id' in source:
+    #         if source['resource_role'] == 'primary_knowledge_source':
+    #             primary_source = primary_source + ';' + source['resource_id']
+    # if len(primary_source)>0:
+    #     primary_source = primary_source[1:]
+        
+    return primary_source
+
+def get_synonym(node_info):
+    if 'attributes' in node_info:
+        attributes = node_info['attributes']
+        synonym = get_info_cond(attributes,'value','attribute_type_id','biolink:synonym')
+    else:
+        synonym = ''
+        
+    return synonym
+    
+def get_category(node_info,separator=';'):
+    if 'categories' in node_info:
+        category = node_info['categories']
+        if isinstance(category,list):
+           category = separator.join(category)
+    else:
+        category = ''
+    return category
+              
+def get_KG_from_aras_message(q):
+    # KG_out = [["id","ARA","subject","subject name","subject_category","object","object name","object_category","predicate","primary_source"]] 
+    KG_out = []
+    
+    for aras_response in q:
+        if aras_response != None:
+            if 'resource_id' in aras_response:
+                ARA = aras_response['resource_id']
+            else:
+                ARA = ''
+            if 'status' in aras_response:
+                if isinstance(aras_response['status'],str):
+                    if aras_response['status'].lower() == 'success':
+                        if 'message' in aras_response:
+                            message = aras_response['message']
+                            if 'knowledge_graph' in message:
+                                KG = message['knowledge_graph']
+                                if 'nodes' in KG:
+                                    nodes = KG['nodes']
+                                if 'edges' in KG:
+                                    edges_ids = list(KG['edges'].keys())
+                                    if len(edges_ids)>0:
+                                        for edges_id in edges_ids: 
+                                            edge = KG['edges'][edges_id]
+                                            if 'sources' in edge:
+                                                source_info = edge['sources']
+                                                primary_source = get_primary_source(source_info)
+                                            if 'subject' in edge:
+                                                subject = edge['subject']
+                                                if subject in nodes:
+                                                    subject_info = nodes[subject]
+                                                    subject_category = get_category(subject_info)
+                                                    subject_name = get_synonym(subject_info)
+                                            else:
+                                                subject = ''
+                                            if 'object' in edge:
+                                                object_ = edge['object']
+                                                if object_ in nodes:
+                                                    object_info = nodes[object_]
+                                                    object_category = get_category(object_info)
+                                                    object_name = get_synonym(object_info)
+                                            else:
+                                                object_ = ''
+                                            if 'predicate' in edge:
+                                                predicate = edge['predicate']
+                                            else:
+                                                predicate = ''
+
+                                            # edge_info = [edges_id,ARA,subject,subject_name,subject_category,object_,object_name,object_category,predicate,primary_source]
+                                            
+                                            edge_info = {'data':{'id': edges_id,'source': subject, 'target': object_, 'label': predicate, 'primary_source': primary_source, 'ARA':ARA}}
+                                            subject_info = {'data':{'id':subject,'label':subject_name,'categorie':subject_category}}
+                                            object_info = {'data':{'id':object_,'label':object_name,'categorie':object_category}}
+                                            KG_out.append(subject_info)
+                                            KG_out.append(object_info)
+                                            KG_out.append(edge_info)
+    return KG_out
+    
+    
+def make_post_request(url_ara, json_message, headers = {'Content-Type': 'application/json','accept': 'application/json'}):
+    response = requests.post(url_ara, json=json_message, headers=headers)
+    print(url_ara)
+    print("POST response status code:", response.status_code)
+    return response
+
+def aras_submit(json_message,instance = 'prod'):
+    
+    if instance == 'dev':
+        # set up dev environments:
+        url_aragorn = 'https://aragorn.transltr.io/aragorn/query?answer_coalesce_type=all'
+        url_arax = 'https://arax.ncats.io/beta/api/arax/v1.4/query'
+        url_biothings = 'https://api.bte.ncats.io/v1/query'
+        url_improving = 'https://ia.healthdatascience.cloud/api/v1.5/query'
+        url_medikanren = 'https://medikanren-trapi.ci.transltr.io/query'
+    
+    url_all_aras = [url_aragorn,url_arax,url_biothings,url_improving,url_medikanren]
+    
+    
+    aras_responses = []
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Submit all requests to the executor
+        future_to_url = {executor.submit(make_post_request, url, json_message): url for url in url_all_aras}
+        
+        # Collect results as they complete
+        for future in concurrent.futures.as_completed(future_to_url):
+            url = future_to_url[future]
+            try:
+                response = future.result()
+                aras_responses.append(response.json())
+            except Exception as exc:
+                print(f'{url} generated an exception: {exc}')
+
+    return aras_responses
+
+## Translator UTILS -ARS
 def KG_reorder_input(input_node_id,KG):
     
     KG_reorder = [[row[0],row[4],row[5],row[6],row[1],row[2],row[3],row[7]] if row[1]!=input_node_id and row[1]!='subject' else row for row in KG]
@@ -141,8 +284,6 @@ def get_trapi_message(PK,instance = 'prod'):
         url_response = 'https://ars-prod.transltr.io/ars/api/messages/' + PK
     
     try:
-        # json_url = urlopen(url_response)
-        # trapi_results_json = json.loads(json_url.read())
         json_url = requests.get(url_response)
         trapi_results_json = json_url.json()
     except:
