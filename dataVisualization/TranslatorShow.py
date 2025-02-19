@@ -4,7 +4,9 @@ from dash import Dash, html, Input, Output, callback
 import dash_cytoscape as cyto
 import webbrowser
 from threading import Timer
-import requests as r
+# import requests as r
+from datetime import datetime
+import json
 
 sys.path.append(os.path.join(os.getcwd()))
 print(os.path.join(os.getcwd()))
@@ -90,20 +92,38 @@ if __name__ == '__main__':
     # create message:
     ids_n0 = ["NCBIGene:100288687"]
     ids_n2 = ["MONDO:0008030"]
-    predicates = ["biolink:interacts_with"]
-    categories = ["biolink:ChemicalEntity","biolink:Gene"]
-
+    # predicates = ["biolink:interacts_with","biolink:interacts_with","biolink:related_to"]
+    # categories = ["biolink:ChemicalEntity","biolink:BiologicalEntity"]
+    predicates = ["biolink_related_to"]
+    categories = ["biolink:ChemicalEntity","biolink:BiologicalEntity"]
 
     json_pathfinder_message = TranslatorMessages.pathfinder_message(ids_n0, ids_n2, categories, predicates)
 
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Create filename with timestamp
+    filename_query = f"query_pathfinder_n0{';'.join(ids_n0)}_n2{';'.join(ids_n2)}_p{';'.join(predicates)}_{timestamp}.json"
+    filename_query = filename_query.replace(':','_')
+    filename_KG = filename_query.replace('query_','KG_')
+    filename_KG = filename_query.replace('.json','.tsv')
+    full_path_query = os.path.join(os.path.join(os.getcwd()),filename_query)
+    
+        
+    # Write JSON data to file
+    with open(full_path_query, "w") as json_file:
+        json.dump(json_pathfinder_message, json_file, indent=4)
+
+    print(f"JSON query saved and exported to {filename_query}")
     
     aras_responses = TranslatorExtract.aras_submit(json_pathfinder_message,'dev')
     
-    KG_flat = TranslatorExtract.get_KG_from_aras_message(aras_responses)
+    KG_flat,KG_table = TranslatorExtract.get_KG_from_aras_message(aras_responses)
+    
+    TranslatorExtract.save_list_txt_file(KG_table,os.path.join(os.path.join(os.getcwd()),filename_KG))
     
     app = cytoscape_layout_setup(KG_flat)
         
-    Timer(1, open_browser).start()  
+    Timer(1, open_browser).start()
     
     
     app.run_server(debug=True, use_reloader=False)
