@@ -49,14 +49,6 @@ def get_info_cond(info_list,info_to_get,condition_key,condition_value, separator
 def get_primary_source(source_info):
     # function that returns the primary source of an edge (tested for ARAX only)
     primary_source = get_info_cond(source_info,'resource_id','resource_role','primary_knowledge_source')
-    
-    # primary_source = ''
-    # for source in source_info:
-    #     if 'resource_role' in source and 'resource_id' in source:
-    #         if source['resource_role'] == 'primary_knowledge_source':
-    #             primary_source = primary_source + ';' + source['resource_id']
-    # if len(primary_source)>0:
-    #     primary_source = primary_source[1:]
         
     return primary_source
 
@@ -81,8 +73,8 @@ def get_category(node_info,separator=';'):
     return category
               
 def get_KG_from_aras_message(q):
-    # KG_out = [["id","ARA","subject","subject name","subject_category","object","object name","object_category","predicate","primary_source"]] 
     KG_out = []
+    KG_table = [["id","ARA","subject","subject name","subject_category","object","object name","object_category","predicate","primary_source"]] 
     
     for aras_response in q:
         if aras_response != None:
@@ -128,7 +120,8 @@ def get_KG_from_aras_message(q):
                                             else:
                                                 predicate = ''
 
-                                            # edge_info = [edges_id,ARA,subject,subject_name,subject_category,object_,object_name,object_category,predicate,primary_source]
+                                            edge_info = [edges_id,ARA,subject,subject_name,subject_category,object_,object_name,object_category,predicate,primary_source]
+                                            KG_table.append(edge_info)
                                             
                                             edge_info = {'data':{'id': edges_id,'source': subject, 'target': object_, 'label': predicate, 'primary_source': primary_source, 'ARA':ARA}}
                                             subject_info = {'data':{'id':subject,'label':subject_name,'category':subject_category}}
@@ -136,7 +129,7 @@ def get_KG_from_aras_message(q):
                                             KG_out.append(subject_info)
                                             KG_out.append(object_info)
                                             KG_out.append(edge_info)
-    return KG_out
+    return KG_out,KG_table
     
     
 def make_post_request(url_ara, json_message, headers = {'Content-Type': 'application/json','accept': 'application/json'}):
