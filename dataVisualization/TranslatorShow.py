@@ -90,11 +90,13 @@ if __name__ == '__main__':
     
     
     # create message:
-    ids_n0 = ["NCBIGene:100288687"]
-    ids_n2 = ["MONDO:0008030"]
+    ids_n0 = ["CHEBI:31690"]
+    ids_n2 = ["MONDO:0004784"]
+    # ids_n0 = ["NCBIGene:100288687"]
+    # ids_n2 = ["MONDO:0008030"]
     # predicates = ["biolink:interacts_with","biolink:interacts_with","biolink:related_to"]
     # categories = ["biolink:ChemicalEntity","biolink:BiologicalEntity"]
-    predicates = ["biolink_related_to"]
+    predicates = ["biolink:related_to","biolink:related_to","biolink:related_to"]
     categories = ["biolink:ChemicalEntity","biolink:BiologicalEntity"]
 
     json_pathfinder_message = TranslatorMessages.pathfinder_message(ids_n0, ids_n2, categories, predicates)
@@ -104,8 +106,9 @@ if __name__ == '__main__':
     # Create filename with timestamp
     filename_query = f"query_pathfinder_n0{';'.join(ids_n0)}_n2{';'.join(ids_n2)}_p{';'.join(predicates)}_{timestamp}.json"
     filename_query = filename_query.replace(':','_')
+    filename_query = filename_query.replace(';','-')
     filename_KG = filename_query.replace('query_','KG_')
-    filename_KG = filename_query.replace('.json','.tsv')
+    filename_KG = filename_KG.replace('.json','.tsv')
     full_path_query = os.path.join(os.path.join(os.getcwd()),filename_query)
     
         
