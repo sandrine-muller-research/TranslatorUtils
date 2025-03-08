@@ -5,6 +5,7 @@ import csv
 import os
 import sys
 import concurrent.futures
+import sqlite3
 # import numpy as np
 # import argparse
 
@@ -28,6 +29,61 @@ def save_list_txt_file(L,filepath_string):
         writer = csv.writer(fp, delimiter='\t')
         # for item in L:
         writer.writerows(L)
+
+def save_KG_in_db(conn,db_file):
+    # Open a connection to a file-based database
+    file_db = sqlite3.connect(db_file)
+
+    # Backup the in-memory database to the file-based database
+    conn.backup(file_db)
+
+    print(f"In-memory database backed up to {db_file}")
+
+    # Close both connections
+    file_db.close()
+    
+    return conn
+        
+def KG_table_to_SQLite(KG_table,table_name, conn=None):
+
+    if not KG_table or len(KG_table) < 2:
+        raise ValueError("Data must contain at least one header row and one data row.")
+
+    # Extract headers and rows
+    headers = KG_table[0]
+    rows = KG_table[1:]
+
+    # Use the provided connection or create a new in-memory database
+    if conn is None:
+        conn = sqlite3.connect(":memory:")
+
+    cursor = conn.cursor()
+
+    # Check if the table already exists
+    cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}';")
+    table_exists = cursor.fetchone() is not None
+
+    if not table_exists:
+        # Create table dynamically based on headers
+        columns = ", ".join([f'"{header}" TEXT' for header in headers])  # All columns as TEXT for simplicity
+        create_table_query = f"CREATE TABLE {table_name} ({columns});"
+        cursor.execute(create_table_query)
+
+        # Insert rows into the new table
+        placeholders = ", ".join(["?" for _ in headers])
+        insert_query = f"INSERT INTO {table_name} VALUES ({placeholders});"
+        cursor.executemany(insert_query, rows)
+    else:
+        # Update existing table by inserting new rows
+        placeholders = ", ".join(["?" for _ in headers])
+        insert_query = f"INSERT OR IGNORE INTO {table_name} VALUES ({placeholders});"
+        cursor.executemany(insert_query, rows)
+
+    # Commit changes (not strictly necessary for in-memory databases)
+    conn.commit()
+
+    
+    return conn
 
 ## Translator UTILS - ARAS
 def get_info_cond(info_list,info_to_get,condition_key,condition_value, separator = ';'):
@@ -137,6 +193,44 @@ def make_post_request(url_ara, json_message, headers = {'Content-Type': 'applica
     print(url_ara)
     print("POST response status code:", response.status_code)
     return response
+
+def ars_submit(trapi_query_message,instance='prod',timeout = 2000, interval = 5):
+   
+    if instance == 'test':
+        url_ars = 'https://ars.test.transltr.io/ars/api/submit/'
+    elif instance == 'ci':
+        url_ars = 'https://ars.ci.transltr.io/ars/api/submit/'
+    else:
+        url_ars = 'https://ars-prod.transltr.io/ars/api/submit/'
+    
+    response = make_post_request(url_ars, trapi_query_message, headers = {'Content-Type': 'application/json','accept': 'application/json'})
+    PK = response.json()['pk']
+    ars_response = get_trapi_message(PK,instance)
+    print('response PK:')
+    print(PK)
+    start_time = time.time()
+    while (time.time() - start_time < timeout) and ars_response['fields']['code']!=400 and ars_response['fields']['code'] != 200:
+        
+        print(ars_response['fields']['status'])
+        
+        try:
+            ars_response = get_trapi_message(PK,instance)
+            if ars_response['fields']['code'] != 202:
+                if ars_response['fields']['code'] == 200:
+                    print("Processing complete!")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error occurred: {e}")
+        
+        # Wait before the next poll
+        time.sleep(interval)
+        
+    if ars_response['fields']['code']!=200:
+        print(ars_response['fields']['status'])
+    
+    print((time.time() - start_time))
+        
+    return ars_response
 
 def aras_submit(json_message,instance = 'prod'):
     
