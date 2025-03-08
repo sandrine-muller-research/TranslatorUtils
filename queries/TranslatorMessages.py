@@ -45,3 +45,29 @@ def pathfinder_message(ids_n0, ids_n2, categories, predicates):
         }
     
     return message
+
+def look_up_message(ids_current_node_list,predicates_list,next_node_categories_list = ["biolink:NamedThing"]):
+    message = {
+        "message" : {
+          "query_graph": {
+              "nodes": {
+                  "n0": {
+                      "ids": ids_current_node_list
+                      },
+                  "n1": {
+                      "categories": next_node_categories_list
+                      }
+                  },
+              "edges": {
+                  "e0": {
+                      "subject": "n0",
+                      "object": "n1",
+                      "predicates": predicates_list,
+                      "knowledge_type": "lookup"
+                      }
+                  }
+              }
+          }
+        }
+    
+    return message
