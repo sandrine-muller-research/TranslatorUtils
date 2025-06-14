@@ -90,14 +90,14 @@ if __name__ == '__main__':
     
     
     # create message:
-    ids_n0 = ["CHEBI:31690"]
-    ids_n2 = ["MONDO:0004784"]
-    # ids_n0 = ["NCBIGene:100288687"]
-    # ids_n2 = ["MONDO:0008030"]
+    # ids_n0 = ["CHEBI:31690"]
+    # ids_n2 = ["MONDO:0004784"]
+    ids_n0 = ["NCBIGene:100288687"]
+    ids_n2 = ["MONDO:0008030"]
     # predicates = ["biolink:interacts_with","biolink:interacts_with","biolink:related_to"]
-    # categories = ["biolink:ChemicalEntity","biolink:BiologicalEntity"]
-    predicates = ["biolink:related_to","biolink:related_to","biolink:related_to"]
     categories = ["biolink:ChemicalEntity","biolink:BiologicalEntity"]
+    predicates = ["biolink:related_to","biolink:related_to","biolink:related_to"]
+    # categories = ["biolink:ChemicalEntity","biolink:BiologicalEntity"]
 
     json_pathfinder_message = TranslatorMessages.pathfinder_message(ids_n0, ids_n2, categories, predicates)
 
