@@ -30,6 +30,180 @@ def save_list_txt_file(L,filepath_string):
         # for item in L:
         writer.writerows(L)
 
+def add_table_from_dict(data_dict, table_name, conn=None):
+    """
+    Adds a new `table_name` table on the form of a dictionnary `data_dict` where each key is a column name and each value is a row to an SQLite database.
+
+    Parameters:
+        data_dict (dict): a dictionnary containing data
+        conn (sqlite3.Connection): SQLite database connection.
+        table_name (str): Name of the table to create or modify.
+
+    Returns:
+        None
+    """  
+    if not data_dict or not isinstance(data_dict, dict):
+        raise ValueError("data_dict must be a non-empty dictionary.")
+
+    # Use existing connection or create a new in-memory database
+    if conn is None:
+        conn = sqlite3.connect(":memory:")
+
+    cursor = conn.cursor()
+
+    # Check if the table already exists
+    cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}';")
+    table_exists = cursor.fetchone() is not None
+
+    if not table_exists:
+        # Dynamically create the table with columns based on the dictionary keys
+        columns_def = ", ".join([f'"{key}" TEXT' for key in data_dict.keys()])  # Use TEXT for simplicity
+        create_table_query = f"CREATE TABLE {table_name} (id INTEGER PRIMARY KEY AUTOINCREMENT, {columns_def});"
+        cursor.execute(create_table_query)
+
+    # Insert the row into the table
+    columns = ", ".join(data_dict.keys())
+    placeholders = ", ".join(["?" for _ in data_dict])
+    insert_query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders});"
+    cursor.execute(insert_query, tuple(data_dict.values()))
+
+    # Commit changes and return connection
+    conn.commit()
+    
+    return conn
+
+def search_and_return_values(conn, my_input_list, T, attribute_to_search, attribute_to_return, T_prime=None):
+    """
+    Searches for strings in my_input_list in attribute_to_search of table T and retrieves the corresponding
+    values for attribute_to_return. If attribute_to_return is not in T, it uses table T' (if provided).
+    
+    Parameters:
+        conn (sqlite3.Connection): SQLite database connection object.
+        my_input_list (list of str): List of strings to search.
+        T (str): Name of the table to search.
+        attribute_to_search (str): Column name in table T to search for values.
+        attribute_to_return (str): Column name whose values are to be returned.
+        T_prime (str, optional): Name of another table where attribute_to_return exists if not in T.
+    
+    Returns:
+        list: A list of values for attribute_to_return corresponding to my_input_list, in the same order.
+    """
+    # Create placeholders for parameterized query
+    placeholders = ', '.join(['?'] * len(my_input_list))  # e.g., "?, ?, ?"
+    
+    # Determine which table contains attribute_to_return
+    if T_prime is None:
+        # If no T_prime is provided, assume attribute_to_return is in T
+        query = f"""
+        SELECT {attribute_to_search}, {attribute_to_return}
+        FROM {T}
+        WHERE {attribute_to_search} IN ({placeholders});
+        """
+    else:
+        # If T_prime is provided, join T and T_prime on common attributes
+        query = f"""
+        SELECT {T}.{attribute_to_search}, {T_prime}.{attribute_to_return}
+        FROM {T}
+        INNER JOIN {T_prime}
+        ON {T}.{attribute_to_search} = {T_prime}.{attribute_to_search}
+        WHERE {T}.{attribute_to_search} IN ({placeholders});
+        """
+    
+    # Execute the query with parameterized inputs
+    cursor = conn.cursor()
+    cursor.execute(query, my_input_list)
+    
+    # Fetch results as a dictionary mapping attribute_to_search -> attribute_to_return
+    rows = cursor.fetchall()
+    if len(rows) != 0:
+        result_map = {row[0]: row[1] for row in rows}
+        out = [result_map.get(value, None) for value in my_input_list]
+    else:
+        out = None
+
+    return out
+
+def search_and_get_table(conn, my_input_list, T, attribute_to_search):
+    """
+    Searches for strings in my_input_list in attribute_to_search of table T and retrieves the corresponding
+    values for attribute_to_return. If attribute_to_return is not in T, it uses table T' (if provided).
+    
+    Parameters:
+        conn (sqlite3.Connection): SQLite database connection object.
+        my_input_list (list of str): List of strings to search.
+        T (str): Name of the table to search.
+        attribute_to_search (str): Column name in table T to search for values.
+        attribute_to_return (str): Column name whose values are to be returned.
+        T_prime (str, optional): Name of another table where attribute_to_return exists if not in T.
+    
+    Returns:
+        list: A list of values for attribute_to_return corresponding to my_input_list, in the same order.
+    """
+    # Create placeholders for parameterized query
+    placeholders = ', '.join(['?'] * len(my_input_list))  # e.g., "?, ?, ?"
+    
+    # Determine which table contains attribute_to_return
+    query = f"""
+    SELECT *
+    FROM {T}
+    WHERE {attribute_to_search} IN ({placeholders});
+    """
+    
+    # Execute the query with parameterized inputs
+    cursor = conn.cursor()
+    cursor.execute(query, my_input_list)
+    
+    # Fetch results as a dictionary mapping attribute_to_search -> attribute_to_return
+    rows = cursor.fetchall()
+    if len(rows) != 0:
+        out = [list(r) for r in rows]
+    else:
+        out = None
+
+    return out
+        
+def update_or_add_column_with_list(conn, table_name, my_column,default_value, my_column_condition=None, my_list=None, my_value=None):
+    """
+    Adds a column to the specified SQLite table (if it doesn't exist) and updates its values
+    based on whether `my_column_condition` matches any value in `my_list`.
+
+    Parameters:
+        conn (sqlite3.Connection): SQLite database connection.
+        table_name (str): Name of the table to modify.
+        my_column (str): Name of the column to add or update.
+        my_column_condition (str): Name of the column used for conditional checks.
+        my_list (list): List of values to match in `my_column_condition`.
+        my_value (float): Value to set in the new column for rows matching the condition.
+
+    Returns:
+        None
+    """
+    cursor = conn.cursor()
+
+    # Step 1: Check if the column already exists
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    existing_columns = [info[1] for info in cursor.fetchall()]  # Column names are in the second field
+
+    # Step 2: Add the column if it doesn't exist
+    if my_column not in existing_columns:
+        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {my_column} REAL DEFAULT {default_value}")
+
+    if (my_column_condition is not None) and (my_list is not None) and (my_value is not None):
+        # Step 3: Update rows where `my_column_condition` matches values in `my_list`
+        if my_list:  # Ensure my_list is not empty
+            placeholders = ', '.join('?' for _ in my_list)  # Create placeholders for SQL query
+            sql_query = f"""
+                UPDATE {table_name}
+                SET {my_column} = ?
+                WHERE {my_column_condition} IN ({placeholders})
+            """
+            cursor.execute(sql_query, [my_value] + my_list)
+
+    # Commit changes to the database
+    conn.commit()
+    
+    return conn
+
 def save_KG_in_db(conn,db_file):
     # Open a connection to a file-based database
     file_db = sqlite3.connect(db_file)
@@ -39,13 +213,12 @@ def save_KG_in_db(conn,db_file):
 
     print(f"In-memory database backed up to {db_file}")
 
-    # Close both connections
-    file_db.close()
+    # # Close both connections
+    # file_db.close()
     
     return conn
-        
-def KG_table_to_SQLite(KG_table,table_name, conn=None):
 
+def KG_table_to_SQLite(KG_table, table_name, conn=None):
     if not KG_table or len(KG_table) < 2:
         raise ValueError("Data must contain at least one header row and one data row.")
 
@@ -69,20 +242,34 @@ def KG_table_to_SQLite(KG_table,table_name, conn=None):
         create_table_query = f"CREATE TABLE {table_name} ({columns});"
         cursor.execute(create_table_query)
 
-        # Insert rows into the new table
-        placeholders = ", ".join(["?" for _ in headers])
-        insert_query = f"INSERT INTO {table_name} VALUES ({placeholders});"
-        cursor.executemany(insert_query, rows)
-    else:
-        # Update existing table by inserting new rows
-        placeholders = ", ".join(["?" for _ in headers])
-        insert_query = f"INSERT OR IGNORE INTO {table_name} VALUES ({placeholders});"
-        cursor.executemany(insert_query, rows)
+    # Insert rows into the table, avoiding duplicates
+    for row in rows:
+        # Extract `node_ID` or `(node_1_ID, node_2_ID)` from the row
+        node_1_ID = row[headers.index("node_1_ID")] if "node_1_ID" in headers else None
+        node_2_ID = row[headers.index("node_2_ID")] if "node_2_ID" in headers else None
+
+        # Check for duplicates in the database
+        if node_1_ID and node_2_ID:
+            query = f"SELECT 1 FROM {table_name} WHERE node_1_ID=? AND node_2_ID=?;"
+            cursor.execute(query, (node_1_ID, node_2_ID))
+            duplicate_exists = cursor.fetchone() is not None
+        elif "node_ID" in headers:
+            node_ID = row[headers.index("node_ID")]
+            query = f"SELECT 1 FROM {table_name} WHERE node_ID=?;"
+            cursor.execute(query, (node_ID,))
+            duplicate_exists = cursor.fetchone() is not None
+        else:
+            duplicate_exists = False
+
+        # Insert only if no duplicate exists
+        if not duplicate_exists:
+            placeholders = ", ".join(["?" for _ in headers])
+            insert_query = f"INSERT INTO {table_name} VALUES ({placeholders});"
+            cursor.execute(insert_query, row)
 
     # Commit changes (not strictly necessary for in-memory databases)
     conn.commit()
 
-    
     return conn
 
 ## Translator UTILS - ARAS
@@ -214,10 +401,11 @@ def ars_submit(trapi_query_message,instance='prod',timeout = 2000, interval = 5)
         print(ars_response['fields']['status'])
         
         try:
-            ars_response = get_trapi_message(PK,instance)
-            if ars_response['fields']['code'] != 202:
-                if ars_response['fields']['code'] == 200:
-                    print("Processing complete!")
+            while ars_response is None:
+                ars_response = get_trapi_message(PK,instance)
+                if ars_response['fields']['code'] != 202:
+                    if ars_response['fields']['code'] == 200:
+                        print("Processing complete!")
 
         except requests.exceptions.RequestException as e:
             print(f"Error occurred: {e}")
@@ -264,7 +452,7 @@ def aras_submit(json_message,instance = 'prod'):
 ## Translator UTILS -ARS
 def KG_reorder_input(input_node_id,KG):
     
-    KG_reorder = [[row[0],row[4],row[5],row[6],row[1],row[2],row[3],row[7]] if row[1]!=input_node_id and row[1]!='subject' else row for row in KG]
+    KG_reorder = [[row[0],row[4],row[5],row[6],row[1],row[2],row[3],row[7]] if row[1]!=input_node_id else row for row in KG[1:]]
     
     return KG_reorder
 
@@ -422,65 +610,91 @@ def create_result_table(PK,instance = 'prod'):
                         a['rank'] = 0
                                      
                 results_out.append([i_r,a['resource_id'],a['normalized_score'],a['weighted_mean'],a['sugeno'],a['rank'],a["support_graphs"],r['node_bindings']['n00'][0]['id'],r['node_bindings']['n01'][0]['id']]) # IMPROVEMENT ADD SUPPORT GRAPH DATA / ONLY TRUE FOR SINGLE INPUT DATA
+
+def find_reverse_predicates(current_node_id_list,next_nodes_table):
+    # find reverse predicates
+    node_ID_reverse_predicates_list = []
+    headers = next_nodes_table[0]
+    next_nodes_table2 = []
+    next_nodes_table2.append(headers)
+    L = len(headers)
+    for current_node_id in current_node_id_list:
+        for n in next_nodes_table[1:]:
+            if n[1]!= current_node_id:
+                # search if edge is bidirectional, and ignore if so
+                is_bidirectional = [True if nn[1] == current_node_id else False for nn in next_nodes_table][0]
+                if not is_bidirectional:
+                    node_ID_reverse_predicates_list = node_ID_reverse_predicates_list + [n[1]]
+                    next_nodes_table2.append([n[0]]+n[4:7]+n[1:4]+list(n[7:]))
+                else:
+                    next_nodes_table2.append([n[0]]+n[4:7]+n[1:4]+list(n[7:]))
+            else:
+                next_nodes_table2.append(n)
+                
+    return next_nodes_table2,node_ID_reverse_predicates_list
  
 def get_KG_table(PK, instance = 'prod'):  
+    ARS_message = None
     KG_out = [["id", "subject","subject name","subject_category","object","object name","object_category","predicate"]] 
     print("Get TRAPI query message...")
     start = time.process_time()
-    ARS_message = get_trapi_message(PK, instance)
-    print(["Get TRAPI query message...Done. ",str(time.process_time() - start)])
+    while ARS_message is None:
+        ARS_message = get_trapi_message(PK, instance)
+        print(["Get TRAPI query message...Done. ",str(time.process_time() - start)])
 
-    print("Get results message...")
-    start = time.process_time()
-    results_message = get_trapi_message(ARS_message["fields"]["merged_version"], instance)
-    print(["Get results message...Done. ",str(time.process_time() - start)])
-    
-    print("Format KG...")  
-    start = time.process_time()
-    KG = results_message["fields"]["data"]["message"]["knowledge_graph"]["edges"]
-    nodes_info = results_message["fields"]["data"]["message"]["knowledge_graph"]["nodes"]
-    cpt = 0
-    for edge in KG:
-        if 'subject' in KG[edge]:
-            subject = KG[edge]["subject"]
-            if subject in nodes_info:
-                if "categories" in nodes_info[subject]:
-                    subject_category = nodes_info[subject]["categories"][0]
-                else:
-                    subject_category = ""
-                    
-                if "name" in nodes_info[subject]:
-                    subject_name = nodes_info[subject]["name"]
-                else:
-                    subject_name = ""        
-        else:
-            subject = None
-            
-        if 'object' in KG[edge]:
-            object = KG[edge]["object"]
-            if object in nodes_info:
-                if "categories" in nodes_info[object]:
-                    object_category = nodes_info[object]["categories"][0]
-                else:
-                    object_category = ""
-                    
-                if "name" in nodes_info[object]:
-                    object_name = nodes_info[object]["name"]
-                else:
-                    object_name = ""
-        else:
-            object = None
-        if 'predicate' in KG[edge]:
-            predicate = KG[edge]["predicate"]
-        else:
-            predicate = None
+    if ARS_message["fields"]["merged_version"] is not None:
+        print("Get results message...")
+        start = time.process_time()
+        results_message = get_trapi_message(ARS_message["fields"]["merged_version"], instance)
+        print(["Get results message...Done. ",str(time.process_time() - start)])
         
-        cpt += 1
-        KG_out.append([cpt,subject,subject_name,subject_category,object,object_name,object_category,predicate])
+        print("Format KG...")  
+        start = time.process_time()
+        KG = results_message["fields"]["data"]["message"]["knowledge_graph"]["edges"]
+        nodes_info = results_message["fields"]["data"]["message"]["knowledge_graph"]["nodes"]
+        cpt = 0
+        for edge in KG:
+            if 'subject' in KG[edge]:
+                subject = KG[edge]["subject"]
+                if subject in nodes_info:
+                    if "categories" in nodes_info[subject]:
+                        subject_category = nodes_info[subject]["categories"][0]
+                    else:
+                        subject_category = ""
+                        
+                    if "name" in nodes_info[subject]:
+                        subject_name = nodes_info[subject]["name"]
+                    else:
+                        subject_name = ""        
+            else:
+                subject = ""
+                
+            if 'object' in KG[edge]:
+                object = KG[edge]["object"]
+                if object in nodes_info:
+                    if "categories" in nodes_info[object]:
+                        object_category = nodes_info[object]["categories"][0]
+                    else:
+                        object_category = ""
+                        
+                    if "name" in nodes_info[object]:
+                        object_name = nodes_info[object]["name"]
+                    else:
+                        object_name = ""
+            else:
+                object = ""
+            if 'predicate' in KG[edge]:
+                predicate = KG[edge]["predicate"]
+            else:
+                predicate = ""
             
-    
-    print(["Format KG...Done. ",str(time.process_time() - start)])            
-    
+            cpt += 1
+            KG_out.append([cpt,subject,subject_name,subject_category,object,object_name,object_category,predicate])
+                
+        
+        print(["Format KG...Done. ",str(time.process_time() - start)])            
+    else:
+        KG_out = None
                                 
     return KG_out
 
