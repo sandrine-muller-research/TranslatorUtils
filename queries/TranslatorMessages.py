@@ -1,13 +1,24 @@
 
 
 def pathfinder_message(ids_n0, ids_n2, categories, predicates):
+    
+    if not isinstance(predicates,list):
+        predicates = [predicates]
+        
     if len(predicates) == 1:
         predicates [1] = predicates[0]
         predicates[2] = predicates[1]
         if len(predicates) ==2:
             print("not enough predicates")
+            
+    if not isinstance(ids_n0,list):
+        ids_n0 = [ids_n0]
+        
+    if not isinstance(ids_n2,list):
+        ids_n2 = [ids_n2]
+    
     message = {
-        "message" : {
+    "message": {
           "query_graph": {
               "nodes": {
                   "sn": {
@@ -40,9 +51,15 @@ def pathfinder_message(ids_n0, ids_n2, categories, predicates):
                       "knowledge_type": "inferred"
                       }
                   }
-              }
-          }
-        }
+              },
+            "knowledge_graph": {},
+            "results": [],
+            "auxiliary_graphs": {}
+        },
+        "schema_version": "1.5.0",
+        "biolink_version": "3.5.0"
+    }
+    
     
     return message
 
