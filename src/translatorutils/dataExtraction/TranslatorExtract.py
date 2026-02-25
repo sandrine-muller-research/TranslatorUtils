@@ -381,8 +381,7 @@ def make_post_request(url_ara, json_message, headers = {'Content-Type': 'applica
     print("POST response status code:", response.status_code)
     return response
 
-def ars_submit(trapi_query_message,instance='prod',timeout = 2000, interval = 5):
-   
+def ars_submit(trapi_query_message, instance='prod', timeout=2000, interval=5):
     if instance == 'test':
         url_ars = 'https://ars.test.transltr.io/ars/api/submit/'
     elif instance == 'ci':
@@ -392,34 +391,48 @@ def ars_submit(trapi_query_message,instance='prod',timeout = 2000, interval = 5)
     else:
         url_ars = 'https://ars-prod.transltr.io/ars/api/submit/'
     
-    response = make_post_request(url_ars, trapi_query_message, headers = {'Content-Type': 'application/json','accept': 'application/json'})
+    response = make_post_request(url_ars, trapi_query_message, headers={'Content-Type': 'application/json','accept': 'application/json'})
     PK = response.json()['pk']
-    ars_response = get_trapi_message(PK,instance)
+    
     print('response PK:')
     print(PK)
-    start_time = time.time()
-    while (time.time() - start_time < timeout) and ars_response['fields']['code']!=400 and ars_response['fields']['code'] != 200:
-        
-        print(ars_response['fields']['status'])
-        
-        try:
-            while ars_response is None:
-                ars_response = get_trapi_message(PK,instance)
-                if ars_response['fields']['code'] != 202:
-                    if ars_response['fields']['code'] == 200:
-                        print("Processing complete!")
-
-        except requests.exceptions.RequestException as e:
-            print(f"Error occurred: {e}")
-        
-        # Wait before the next poll
-        time.sleep(interval)
-        
-    if ars_response['fields']['code']!=200:
-        print(ars_response['fields']['status'])
     
-    print((time.time() - start_time))
+    # Initial status check with safety
+    ars_response = get_trapi_message(PK, instance)
+    if ars_response is None:
+        print("Initial status check failed")
+        return None
         
+    # Handle already-complete case (Colab race condition fix)
+    if ars_response['fields']['code'] in [200, 400]:
+        print(f"Job already {ars_response['fields']['status']} (code: {ars_response['fields']['code']})")
+        return ars_response
+    
+    start_time = time.time()
+    while (time.time() - start_time < timeout):
+        print(ars_response['fields']['status'])
+        
+        # Safe polling with null check
+        try:
+            if ars_response is None:
+                ars_response = get_trapi_message(PK, instance)
+                time.sleep(interval)
+                continue
+                
+            code = ars_response['fields']['code']
+            if code in [200, 400]:
+                print(f"Final status: {ars_response['fields']['status']}")
+                return ars_response
+                
+        except (KeyError, TypeError) as e:
+            print(f"Polling error: {e}, retrying...")
+            ars_response = None  # Force retry
+        
+        time.sleep(interval)
+        ars_response = get_trapi_message(PK, instance)
+    
+    # Timeout case
+    print(f"Timeout after {timeout}s, final status: {ars_response['fields']['status'] if ars_response else 'Unknown'}")
     return ars_response
 
 def aras_submit(json_message,instance = 'prod'):
@@ -777,3 +790,13 @@ def get_KG_table(PK, instance = 'prod', graph_selection = 'out'):
     return KG_out
 
 
+if __name__ == "__main__":
+    message = {'message': {'query_graph': {'nodes': {'n0': {'ids': ['NCBI:100288687']},
+    'n1': {'categories': ['biolink:ChemicalEntity']}},
+   'edges': {'e0': {'subject': 'n0',
+     'object': 'n1',
+     'predicates': ['affects'],
+     'knowledge_type': 'inferred'}}}}}
+    
+    print('testing ARAS submit...')
+    response = ars_submit(message,instance='dev',timeout = 5000, interval = 5)
