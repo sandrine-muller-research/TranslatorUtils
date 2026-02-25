@@ -63,7 +63,7 @@ def pathfinder_message(ids_n0, ids_n2, categories, predicates):
     
     return message
 
-def look_up_message(ids_current_node_list,predicates_list,next_node_categories_list = ["biolink:NamedThing"]):
+def look_up_message(ids_current_node_list,predicates_list,next_node_categories_list = ["biolink:NamedThing"],reasoning_type = "lookup"):
     message = {
         "message" : {
           "query_graph": {
@@ -80,7 +80,7 @@ def look_up_message(ids_current_node_list,predicates_list,next_node_categories_l
                       "subject": "n0",
                       "object": "n1",
                       "predicates": predicates_list,
-                      "knowledge_type": "lookup"
+                      "knowledge_type": reasoning_type
                       }
                   }
               }
