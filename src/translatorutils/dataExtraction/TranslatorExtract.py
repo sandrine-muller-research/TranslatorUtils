@@ -387,6 +387,8 @@ def ars_submit(trapi_query_message,instance='prod',timeout = 2000, interval = 5)
         url_ars = 'https://ars.test.transltr.io/ars/api/submit/'
     elif instance == 'ci':
         url_ars = 'https://ars.ci.transltr.io/ars/api/submit/'
+    elif instance == 'dev':
+        url_ars = 'https://ars-dev.transltr.io/ars/api/submit/'
     else:
         url_ars = 'https://ars-prod.transltr.io/ars/api/submit/'
     
@@ -633,7 +635,7 @@ def find_reverse_predicates(current_node_id_list,next_nodes_table):
                 
     return next_nodes_table2,node_ID_reverse_predicates_list
  
-def get_KG_table(PK, instance = 'prod'):  
+def get_KG_out_table(PK,instance = 'prod'):
     ARS_message = None
     KG_out = [["id", "subject","subject name","subject_category","object","object name","object_category","predicate"]] 
     print("Get TRAPI query message...")
@@ -695,6 +697,80 @@ def get_KG_table(PK, instance = 'prod'):
         print(["Format KG...Done. ",str(time.process_time() - start)])            
     else:
         KG_out = None
+        
+    return KG_out
+
+def get_KG_in_table(PK,instance = 'prod'):
+    ARS_message = None
+    KG_out = [["id", "subject","subject name","subject_category","object","object name","object_category","predicate"]] 
+    print("Get TRAPI query message...")
+    start = time.process_time()
+    while ARS_message is None:
+        ARS_message = get_trapi_message(PK, instance)
+        print(["Get TRAPI query message...Done. ",str(time.process_time() - start)])
+
+    if ARS_message["fields"]["merged_version"] is not None:
+        print("Get results message...")
+        start = time.process_time()
+        results_message = get_trapi_message(ARS_message["fields"]["merged_version"], instance)
+        print(["Get results message...Done. ",str(time.process_time() - start)])
+        
+        print("Format KG...")  
+        start = time.process_time()
+        KG = results_message["fields"]["data"]["message"]["knowledge_graph"]["edges"]
+        nodes_info = results_message["fields"]["data"]["message"]["knowledge_graph"]["nodes"]
+        cpt = 0
+        for edge in KG:
+            if 'subject' in KG[edge]:
+                subject = KG[edge]["subject"]
+                if subject in nodes_info:
+                    if "categories" in nodes_info[subject]:
+                        subject_category = nodes_info[subject]["categories"][0]
+                    else:
+                        subject_category = ""
+                        
+                    if "name" in nodes_info[subject]:
+                        subject_name = nodes_info[subject]["name"]
+                    else:
+                        subject_name = ""        
+            else:
+                subject = ""
+                
+            if 'object' in KG[edge]:
+                object = KG[edge]["object"]
+                if object in nodes_info:
+                    if "categories" in nodes_info[object]:
+                        object_category = nodes_info[object]["categories"][0]
+                    else:
+                        object_category = ""
+                        
+                    if "name" in nodes_info[object]:
+                        object_name = nodes_info[object]["name"]
+                    else:
+                        object_name = ""
+            else:
+                object = ""
+            if 'predicate' in KG[edge]:
+                predicate = KG[edge]["predicate"]
+            else:
+                predicate = ""
+            
+            cpt += 1
+            KG_out.append([cpt,subject,subject_name,subject_category,object,object_name,object_category,predicate])
+                
+        
+        print(["Format KG...Done. ",str(time.process_time() - start)])            
+    else:
+        KG_out = None
+        
+    return KG_out
+
+def get_KG_table(PK, instance = 'prod', graph_selection = 'out'):  
+
+    if graph_selection == 'out':
+        KG_out = get_KG_out_table(PK, instance)
+    else:
+        KG_in = get_KG_in_table(PK, instance)
                                 
     return KG_out
 
