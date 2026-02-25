@@ -559,6 +559,8 @@ def get_trapi_message(PK,instance = 'prod'):
         url_response = 'https://ars.test.transltr.io/ars/api/messages/' + PK 
     elif instance == 'ci':
         url_response = 'https://ars.ci.transltr.io/ars/api/messages/' + PK 
+    elif instance == 'dev':
+        url_response = 'https://ars-dev.transltr.io/ars/api/messages/' + PK
     else:
         url_response = 'https://ars-prod.transltr.io/ars/api/messages/' + PK
     
